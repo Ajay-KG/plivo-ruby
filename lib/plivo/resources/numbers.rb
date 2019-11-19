@@ -19,6 +19,7 @@ module Plivo
       def to_s
         {
           country: @country,
+          city: @city,
           lata: @lata,
           monthly_rental_rate: @monthly_rental_rate,
           number: @number,
@@ -32,6 +33,8 @@ module Plivo
           setup_rate: @setup_rate,
           sms_enabled: @sms_enabled,
           sms_rate: @sms_rate,
+          mms_enabled: @mms_enabled,
+          mms_rate: @mms_rate,
           voice_enabled: @voice_enabled,
           voice_rate: @voice_rate
         }.to_s
@@ -52,11 +55,14 @@ module Plivo
       # @option options [String] :pattern Represents the pattern of the number to be searched. Adding a pattern will search for numbers which start with the country code + pattern. For eg. a pattern of 415 and a country_iso: US will search for numbers starting with 1415.
       # @option options [String] :region This filter is only applicable when the type is fixed. If the type is not provided, it is assumed to be fixed. Region based filtering can be performed with the following terms:
       #                                  - Exact names of the region: You could use region=Frankfurt if you were looking for a number in Frankfurt. Performed if the search term is three or more characters in length.
+      # @param [String] :city Return list of numbers for given city
       # @option options [String] :services Filters out phone numbers according to the services you want from that number. The following values are valid:
-      #                                    - voice - If this option is selected, it ensures that the results have voice enabled numbers. These numbers may or may not be SMS enabled.
+      #                                    - voice - If this option is selected, it ensures that the results have voice enabled numbers. These numbers may or may not be sms or mms enabled.
+      #                                    - sms - If this option is selected, it ensures that the results have sms enabled numbers. These numbers may or may not be voice or mms enabled.
+      #                                    - mms - If this option is selected, it ensures that the results have mms enabled numbers. These numbers may or may not be voice or sms enabled.
       #                                    - voice,sms - If this option is selected, it ensures that the results have both voice and sms enabled on the same number.
-      #                                    - sms - If this option is selected, it ensures that the results have sms enabled numbers. These numbers may or may not be voice enabled.
-      #                                    - By default, numbers that have either voice or sms or both enabled are returned.
+      #                                    - voice,sms,mms - If this option is selected, it ensures that the results have voice, sms and mms enabled on the same number.
+      #                                    - By default, numbers that have either voice or sms or mms or any two or all enabled are returned.
       # @option options [String] :lata Numbers can be searched using Local Access and Transport Area {http://en.wikipedia.org/wiki/Local_access_and_transport_area}. This filter is applicable only for country_iso US and CA.
       # @option options [String] :rate_center Numbers can be searched using Rate Center {http://en.wikipedia.org/wiki/Telephone_exchange}. This filter is application only for country_iso US and CA.
       # @option options [Boolean] :eligible If set to true, lists only those numbers that you are eligible to buy at the moment. To list all numbers, ignore this option.
@@ -71,7 +77,7 @@ module Plivo
 
         return perform_list(params) if options.nil?
 
-        %i[type pattern region services lata rate_center].each do |param|
+        %i[type pattern region services lata rate_center city].each do |param|
           if options.key?(param) &&
              valid_param?(param, options[param], [String, Symbol], true)
             params[param] = options[param]
@@ -166,6 +172,8 @@ module Plivo
           alias: @alias,
           application: @application,
           carrier: @carrier,
+          city: @city,
+          country: @country,
           monthly_rental_rate: @monthly_rental_rate,
           number: @number,
           number_type: @number_type,
@@ -173,6 +181,8 @@ module Plivo
           resource_uri: @resource_uri,
           sms_enabled: @sms_enabled,
           sms_rate: @sms_rate,
+          mms_enabled: @mms_enabled,
+          mms_rate: @mms_rate,
           sub_account: @sub_account,
           voice_enabled: @voice_enabled,
           voice_rate: @voice_rate
@@ -200,8 +210,10 @@ module Plivo
       # @option options [String] :alias This is a name given to the number. The API will fetch only those numbers with the alias specified.
       # @option options [String] :services Filters out phone numbers according to the services you want from that number. The following values are valid:
       #                                    - voice - Returns a list of numbers that provide 'voice' services. Additionally, if the numbers offer both 'voice' and 'sms', they are also listed. Note - This option does not exclusively list those services that provide both voice and sms .
-      #                                    - voice,sms - Returns a list of numbers that provide both 'voice' and 'sms' services.
       #                                    - sms - Returns a list of numbers that provide only 'sms' services.
+      #                                    - mms - Returns a list of numbers that provide only 'mms' services.
+      #                                    - voice,sms - Returns a list of numbers that provide both 'voice' and 'sms' services.
+      #                                    - voice,sms,mms - Returns a list of numbers that provide all 'voice', 'sms' and 'mms' services.
       # @option options [Int] :limit Used to display the number of results per page. The maximum number of results that can be fetched is 20.
       # @option options [Int] :offset Denotes the number of value items by which the results should be offset. Eg:- If the result contains a 1000 values and limit is set to 10 and offset is set to 705, then values 706 through 715 are displayed in the results. This parameter is also used for pagination of the results.
       def list(options = nil)
@@ -218,9 +230,13 @@ module Plivo
           end
         end
 
-        if options.key?(:services) &&
-           valid_param?(:services, options[:services], [String, Symbol],
-                        true, %w[sms voice voice,sms])
+        if options.key?(:services)
+           # && valid_param?(:services, options[:services], [String, Symbol],
+           #             true, %w[sms voice mms voice,sms ])
+          options[:services].split(',').each do |service|
+              valid_param?(:services, service, [String, Symbol],
+                        true, %w[sms mms voice])
+          end
           params[:services] = options[:services]
         end
 
